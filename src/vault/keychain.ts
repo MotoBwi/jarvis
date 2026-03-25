@@ -33,7 +33,9 @@ function getOrCreateKey(): Buffer {
   }
   const key = randomBytes(32);
   writeFileSync(KEY_PATH, key.toString('hex'), { mode: 0o600 });
-  try { chmodSync(KEY_PATH, 0o600); } catch {}
+  try { chmodSync(KEY_PATH, 0o600); } catch (err) {
+    console.warn('[Keychain] Could not set permissions on key file:', err);
+  }
   return key;
 }
 
@@ -73,7 +75,9 @@ function saveSecrets(secrets: Record<string, string>): void {
   const json = JSON.stringify(secrets);
   const encrypted = encrypt(key, json);
   writeFileSync(SECRETS_PATH, encrypted, { mode: 0o600 });
-  try { chmodSync(SECRETS_PATH, 0o600); } catch {}
+  try { chmodSync(SECRETS_PATH, 0o600); } catch (err) {
+    console.warn('[Keychain] Could not set permissions on secrets file:', err);
+  }
 }
 
 export function getSecret(name: string): string | null {

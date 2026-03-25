@@ -150,7 +150,7 @@ export type JarvisConfig = {
     anthropic?: { api_key: string; model?: string };
     openai?: { api_key: string; model?: string };
     gemini?: { api_key: string; model?: string };
-    ollama?: { base_url?: string; model?: string };
+    ollama?: { base_url?: string; model?: string; api_key?: string };
     openrouter?: { api_key: string; model?: string };
   };
   personality: {
@@ -227,8 +227,9 @@ export const DEFAULT_CONFIG: JarvisConfig = {
       model: 'gemini-3-flash-preview',
     },
     ollama: {
-      base_url: 'http://localhost:11434',
-      model: 'llama3',
+      base_url: 'https://ollama.com',
+      model: 'minimax-m2.5:cloud',
+      api_key: '',
     },
     openrouter: {
       api_key: '',

@@ -96,8 +96,8 @@ export function parseExtractionResponse(llmResponse: string): ExtractionResult {
 
     return result;
   } catch (_error) {
-
-    // Return empty result on parse failure
+    // Log error for debugging but return empty result to not break the flow
+    console.warn('[Vault/Extractor] Failed to parse LLM extraction response:', _error);
     return {
       entities: [],
       facts: [],

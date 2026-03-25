@@ -135,12 +135,18 @@ export class ProcessMonitor implements Observer {
     const platform = process.platform;
 
     try {
-      if (platform === 'linux' || platform === 'darwin') {
-        // Use ps command for Unix-like systems
+      if (platform === 'linux') {
+        // Use ps command for Linux
         const result = await Bun.$`ps aux --no-headers`.quiet();
         const output = result.stdout.toString();
 
         return this.parsePS(output);
+      } else if (platform === 'darwin') {
+        // Use ps command for macOS (different syntax)
+        const result = await Bun.$`ps -A -o pid,pcpu,pmem,comm`.quiet();
+        const output = result.stdout.toString();
+
+        return this.parsePSDarwin(output);
       } else if (platform === 'win32') {
         // Use PowerShell for Windows
         const result = await Bun.$`powershell.exe Get-Process | Select-Object Id,Name,CPU,WorkingSet | ConvertTo-Csv -NoTypeInformation`.quiet();
@@ -157,7 +163,7 @@ export class ProcessMonitor implements Observer {
   }
 
   /**
-   * Parse output from Unix ps command
+   * Parse output from Unix ps command (Linux format)
    */
   private parsePS(output: string): ProcessInfo[] {
     const processes: ProcessInfo[] = [];
@@ -175,6 +181,39 @@ export class ProcessMonitor implements Observer {
       const cpu = parseFloat(parts[2]!);
       const memory = parseFloat(parts[3]!);
       const name = parts.slice(10).join(' '); // COMMAND can have spaces
+
+      if (!isNaN(pid)) {
+        processes.push({
+          pid,
+          name,
+          cpu,
+          memory,
+        });
+      }
+    }
+
+    return processes;
+  }
+
+  /**
+   * Parse output from macOS ps command
+   * Format: PID %CPU %MEM COMM
+   */
+  private parsePSDarwin(output: string): ProcessInfo[] {
+    const processes: ProcessInfo[] = [];
+    const lines = output.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+
+      if (parts.length < 4) {
+        continue;
+      }
+
+      const pid = parseInt(parts[0]!, 10);
+      const cpu = parseFloat(parts[1]!) || 0;
+      const memory = parseFloat(parts[2]!) || 0;
+      const name = parts.slice(3).join(' '); // COMM can have spaces
 
       if (!isNaN(pid)) {
         processes.push({

@@ -251,7 +251,7 @@ export async function runOnboard(): Promise<void> {
       } else if (provider === 'openrouter' && config.llm.openrouter?.api_key) {
         manager.registerProvider(new OpenRouterProvider(config.llm.openrouter.api_key, config.llm.openrouter.model));
       } else if (provider === 'ollama') {
-        manager.registerProvider(new OllamaProvider(config.llm.ollama?.base_url, config.llm.ollama?.model));
+        manager.registerProvider(new OllamaProvider(config.llm.ollama?.base_url, config.llm.ollama?.model, config.llm.ollama?.api_key));
       }
 
       manager.setPrimary(provider);

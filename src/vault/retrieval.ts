@@ -92,8 +92,8 @@ export function retrieveForMessage(message: string): EntityProfile[] {
         }
       }
     }
-  } catch {
-    // DB not available — return what we have from entity search
+  } catch (err) {
+    console.warn('[Vault/Retrieval] Fact search failed:', err);
   }
 
   // 3. Build full profiles for matched entities (cap at 10)
@@ -111,8 +111,8 @@ export function retrieveForMessage(message: string): EntityProfile[] {
         target: r.from_id === entity.id ? r.to_entity.name : r.from_entity.name,
         direction: (r.from_id === entity.id ? 'from' : 'to') as 'from' | 'to',
       }));
-    } catch {
-      // Relationship query failed — skip
+    } catch (err) {
+      console.warn('[Vault/Retrieval] Relationship query failed:', err);
     }
 
     profiles.push({ entity, facts, relationships });

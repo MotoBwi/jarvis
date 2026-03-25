@@ -132,7 +132,7 @@ describe('Provider URLs', () => {
 
   test('OllamaProvider uses correct base URL', () => {
     const provider = new OllamaProvider() as any;
-    expect(provider.baseUrl).toBe('http://localhost:11434');
+    expect(provider.baseUrl).toBe('https://ollama.com');
   });
 
   test('OllamaProvider removes trailing slash from base URL', () => {
@@ -154,7 +154,7 @@ describe('Default Models', () => {
 
   test('OllamaProvider has correct default model', () => {
     const provider = new OllamaProvider() as any;
-    expect(provider.defaultModel).toBe('llama3');
+    expect(provider.defaultModel).toBe('minimax-m2.5:cloud');
   });
 
   test('OpenRouterProvider has correct default model', () => {

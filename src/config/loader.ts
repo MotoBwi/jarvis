@@ -71,8 +71,13 @@ function applyEnvOverrides(config: JarvisConfig): void {
   }
 
   if (env.JARVIS_OLLAMA_URL) {
-    if (!config.llm.ollama) config.llm.ollama = { base_url: '', model: 'llama3' };
+    if (!config.llm.ollama) config.llm.ollama = { base_url: '', model: 'minimax-m2.5:cloud', api_key: '' };
     config.llm.ollama.base_url = env.JARVIS_OLLAMA_URL;
+  }
+
+  if (env.OLLAMA_API_KEY) {
+    if (!config.llm.ollama) config.llm.ollama = { base_url: 'https://ollama.com', model: 'minimax-m2.5:cloud', api_key: '' };
+    config.llm.ollama.api_key = env.OLLAMA_API_KEY;
   }
 
   if (env.JARVIS_OPENROUTER_KEY) {

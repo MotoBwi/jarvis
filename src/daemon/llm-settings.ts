@@ -307,7 +307,7 @@ export function hotReloadLLMProviders(config: JarvisConfig, llmManager: LLMManag
     console.log('[LLM] Hot-reloaded OpenRouter provider');
   }
   if (llm.ollama) {
-    providers.push(new OllamaProvider(llm.ollama.base_url, llm.ollama.model));
+    providers.push(new OllamaProvider(llm.ollama.base_url, llm.ollama.model, llm.ollama.api_key));
     console.log('[LLM] Hot-reloaded Ollama provider');
   }
 
@@ -352,6 +352,7 @@ export async function testLLMProvider(
       instance = new OllamaProvider(
         opts.base_url ?? config.llm.ollama?.base_url,
         opts.model ?? config.llm.ollama?.model,
+        opts.api_key ?? config.llm.ollama?.api_key,
       );
     } else {
       return { ok: false, error: `Unknown provider: ${opts.provider}` };

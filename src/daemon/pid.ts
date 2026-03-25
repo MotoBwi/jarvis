@@ -29,9 +29,31 @@ const LOG_PATH = join(LOG_DIR, 'jarvis.log');
 
 // ── flock() via Bun FFI ──────────────────────────────────────────────
 
-const libc = dlopen('libc.so.6', {
-  flock: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
-});
+// Use platform-specific library: libc.so.6 on Linux, libSystem on macOS
+type LibC = {
+  symbols: {
+    flock: (fd: number, operation: number) => number;
+  };
+};
+let libc: LibC | null = null;
+
+try {
+  // Try Linux first
+  const result = dlopen('libc.so.6', {
+    flock: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+  });
+  libc = result as unknown as LibC;
+} catch {
+  // Try macOS (libSystem.B.dylib)
+  try {
+    const result = dlopen('libSystem.B.dylib', {
+      flock: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
+    });
+    libc = result as unknown as LibC;
+  } catch {
+    console.warn('[PID] flock() not available on this platform, using fallback locking');
+  }
+}
 
 const LOCK_EX = 2;  // Exclusive lock
 const LOCK_NB = 4;  // Non-blocking
@@ -51,6 +73,12 @@ let lockFd: number | null = null;
  * Returns true if the lock was acquired, false if another instance holds it.
  */
 export function acquireLock(pid: number): boolean {
+  // Fallback: simple file-based locking if flock is not available
+  const libcLib = libc;
+  if (!libcLib) {
+    return acquireLockFallback(pid);
+  }
+
   try {
     mkdirSync(JARVIS_DIR, { recursive: true });
 
@@ -58,7 +86,8 @@ export function acquireLock(pid: number): boolean {
     const fd = openSync(LOCK_PATH, constants.O_WRONLY | constants.O_CREAT, 0o644);
 
     // Try non-blocking exclusive lock
-    const result = libc.symbols.flock(fd, LOCK_EX | LOCK_NB);
+    const flock = libcLib.symbols.flock;
+    const result = flock(fd, LOCK_EX | LOCK_NB);
     if (result !== 0) {
       closeSync(fd);
       return false;
@@ -78,11 +107,51 @@ export function acquireLock(pid: number): boolean {
 }
 
 /**
+ * Fallback lock implementation for platforms without flock support (macOS fallback)
+ */
+function acquireLockFallback(pid: number): boolean {
+  try {
+    mkdirSync(JARVIS_DIR, { recursive: true });
+
+    // Check if lock file exists and is still valid
+    if (existsSync(LOCK_PATH)) {
+      const content = readFileSync(LOCK_PATH, 'utf-8').trim();
+      const existingPid = parseInt(content, 10);
+      if (!isNaN(existingPid) && existingPid > 0) {
+        // Check if process is still running
+        try {
+          process.kill(existingPid, 0); // Signal 0 just checks if process exists
+          return false; // Process is running, can't acquire lock
+        } catch {
+          // Process doesn't exist, can acquire lock
+        }
+      }
+    }
+
+    // Create lock file
+    const fd = openSync(LOCK_PATH, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC, 0o644);
+    writeSync(fd, String(pid));
+    closeSync(fd);
+    lockFd = fd;
+    return true;
+  } catch (err) {
+    console.error(`[PID] Failed to acquire fallback lock: ${err}`);
+    return false;
+  }
+}
+
+/**
  * Check if the daemon lock is currently held.
  * Returns the PID if locked (daemon running), null otherwise.
  */
 export function isLocked(): number | null {
   if (!existsSync(LOCK_PATH)) return null;
+
+  // Use fallback method if flock is not available
+  const libcLib = libc;
+  if (!libcLib) {
+    return isLockedFallback();
+  }
 
   let fd: number;
   try {
@@ -93,10 +162,11 @@ export function isLocked(): number | null {
 
   try {
     // Try non-blocking exclusive lock to probe
-    const result = libc.symbols.flock(fd, LOCK_EX | LOCK_NB);
+    const flock = libcLib.symbols.flock;
+    const result = flock(fd, LOCK_EX | LOCK_NB);
     if (result === 0) {
       // Lock acquired — no daemon running. Release immediately.
-      libc.symbols.flock(fd, LOCK_UN);
+      flock(fd, LOCK_UN);
       closeSync(fd);
       return null;
     }
@@ -114,6 +184,23 @@ export function isLocked(): number | null {
     return pid;
   } catch {
     try { closeSync(fd); } catch { /* already closed */ }
+    return null;
+  }
+}
+
+/**
+ * Fallback lock check for platforms without flock
+ */
+function isLockedFallback(): number | null {
+  const pid = readPid();
+  if (pid === null) return null;
+
+  // Check if process is still running
+  try {
+    process.kill(pid, 0);
+    return pid; // Process is running
+  } catch {
+    // Process doesn't exist, lock is stale
     return null;
   }
 }
